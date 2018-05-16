@@ -44,6 +44,9 @@ def parseTransactions(file):
             if customerId not in customerCountries:
                 'this is an invalid customerId, store it'
                 anomalies.append(customerId + " is an invalid customerId for row " + ''.join(row))
+            if (int(quantity) <= 0):
+                'this is an invalid quantity, store it'
+                anomalies.append(quantity + " is an invalid quantity for row " + ''.join(row))
             if stockCode in stockPrices:
                 if customerId not in customerPurchaseInvoices:
                     amount = 0.0
