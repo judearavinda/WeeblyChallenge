@@ -4,6 +4,8 @@ customerCountries = {}
 stockPrices = {}
 customerPurchaseLog = {}
 customerPurchaseInvoices = {}
+transactionInvoiceTimes = {}
+transactionInvoiceCustomers = {}
 CUSTOMER_INFO = "customer_info.csv"
 PRODUCT_INFO = "product_info.csv"
 INVOICE = "invoice.csv"
@@ -11,36 +13,56 @@ anomalies = []
 
 def parseCustomers(file):
     with open(file, 'r') as csvfile:
-        has_header = csv.Sniffer().has_header(csvfile.read(1024))
         reader = csv.reader(csvfile, delimiter=',')
-        if has_header:
-            next(reader)
+        'skip the headers'
+        next(reader, None)
         for row in reader:
-            customerId= row[0]
-            country = row[1]
+            customerId= row[0].strip()
+            country = row[1].strip()
+            if customerId in customerCountries:
+                'this is a duplicate customerId , store it'
+                anomalies.append(customerId + " is a duplicate customerId for row " + ''.join(row))
             customerCountries[customerId] = country
 
 def parseStocks(file):
     with open(file, 'r') as csvfile:
-        has_header = csv.Sniffer().has_header(csvfile.read(1024))
         reader = csv.reader(csvfile, delimiter=',')
-        if has_header:
-            next(reader)
+        'skip the headers'
+        next(reader, None)
         for row in reader:
-            stockCode = row[0]
-            price = float(row[2])
+            stockCode = row[0].strip()
+            price = float(row[2].strip())
+            if stockCode in stockPrices:
+                'this is a duplicate stockCode , store it'
+                anomalies.append(stockCode + " is a duplicate stockCode for row " + ''.join(row))
             stockPrices[stockCode] = price
 
 def parseTransactions(file):
     with open(file, 'r') as csvfile:
-        has_header = csv.Sniffer().has_header(csvfile.read(1024))
         reader = csv.reader(csvfile, delimiter=',')
-        if has_header:
-            next(reader)
+        'skip the headers'
+        next(reader, None)
         for row in reader:
-            stockCode = row[1]
-            quantity = row[2]
-            customerId = row[4]
+            invoiceNo = row[0].strip()
+            stockCode = row[1].strip()
+            quantity = row[2].strip()
+            invoiceDate = row[3].strip()
+            customerId = row[4].strip()
+
+            if invoiceNo not in transactionInvoiceTimes:
+                transactionInvoiceTimes[invoiceNo] = invoiceDate
+            else:
+                if invoiceDate != transactionInvoiceTimes[invoiceNo]:
+                    'this is an anomaly, it is an inconsistent invoiceDate'
+                    anomalies.append(invoiceNo + " has an inconsistent invoiceDate in row " + ''.join(row))
+
+            if invoiceNo not in transactionInvoiceCustomers:
+                transactionInvoiceCustomers[invoiceNo] = customerId
+            else:
+                if customerId != transactionInvoiceCustomers[invoiceNo]:
+                    'this is an anomaly, it is an inconsistent customer'
+                    anomalies.append(invoiceNo + " has an inconsistent customer in row " + ''.join(row))
+
             if customerId not in customerCountries:
                 'this is an invalid customerId, store it'
                 anomalies.append(customerId + " is an invalid customerId for row " + ''.join(row))
@@ -100,8 +122,6 @@ class ParseCustomerTransactions(luigi.Task):
         return luigi.LocalTarget("customerTransactions.txt")
 
     def run(self):
-        parseCustomers(CUSTOMER_INFO)
-        parseStocks(PRODUCT_INFO)
         parseTransactions(INVOICE)
         with self.output().open("w") as out_file:
             for customer in customerPurchaseLog:
